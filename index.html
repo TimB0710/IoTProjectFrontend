@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="controls">
+    <label for="data-type">Datenquelle:</label>
+    <select id="data-type">
+        <option value="live">Live-Daten</option>
+        <option value="historical">Historische Daten</option>
+    </select>
+    <label for="date-picker" id="date-label" style="display: none;">Datum wählen:</label>
+    <input type="date" id="date-picker" style="display: none;">
+    <button id="apply-settings">Anwenden</button>
+</div>
+
+<div class="main-dashboard"></div>
+
+<script>
+    const socket = new WebSocket('wss://toBeDone');
+    const charts = {};
+    const apiUrl = 'https://toBeDone';
+
+    const dataTypeSelector = document.getElementById('data-type');
+    const datePicker = document.getElementById('date-picker');
+    const dateLabel = document.getElementById('date-label');
+    const applySettingsButton = document.getElementById('apply-settings');
+
+    dataTypeSelector.addEventListener('change', (e) => {
+        if (e.target.value === 'historical') {
+            dateLabel.style.display = 'block';
+            datePicker.style.display = 'block';
+        } else {
+            dateLabel.style.display = 'none';
+            datePicker.style.display = 'none';
+        }
+    });
+
+    applySettingsButton.addEventListener('click', () => {
+        const dataType = dataTypeSelector.value;
+        if (dataType === 'historical') {
+            const date = datePicker.value;
+            if (date) {
+                fetchHistoricalData(date);
+            } else {
+                alert('Bitte ein Datum auswählen.');
+            }
+        }
+    });
+
+    async function fetchHistoricalData(date) {
+        try {
+            const response = await fetch(`${apiUrl}?date=${date}`);
+            const data = await response.json();
+            updateChartsWithHistoricalData(data);
+        } catch (error) {
+            console.error('Fehler beim Abrufen der historischen Daten:', error);
+        }
+    }
+
+    function updateChartsWithHistoricalData(data) {
+        data.forEach(entry => {
+            const {topic, values, timestamps} = entry;
+            if (charts[topic]) {
+                charts[topic].data.labels = timestamps;
+                charts[topic].data.datasets[0].data = values;
+                charts[topic].update();
+            }
+        });
+    }
+
+    socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        const {topic, value, timestamp} = data;
+
+        if (!charts[topic]) {
+            createChart(topic);
+        }
+
+        const chart = charts[topic];
+
+        const timeLabel = new Date(timestamp).toLocaleTimeString();
+
+        chart.data.labels.push(timeLabel);
+        chart.data.datasets[0].data.push(value);
+
+        if (chart.data.labels.length > 10) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+        }
+
+        chart.update();
+    };
+
+    function createChart(topic) {
+        const container = document.createElement('div');
+        container.className = 'grid-item';
+        const canvas = document.createElement('canvas');
+        container.appendChild(canvas);
+        document.querySelector('.main-dashboard').appendChild(container);
+
+        const ctx = canvas.getContext('2d');
+        charts[topic] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: topic,
+                    data: [],
+                    borderColor: `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 1)`,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Zeit'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Wert'
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>
