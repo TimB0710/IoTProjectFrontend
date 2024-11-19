@@ -9,14 +9,14 @@
 </head>
 <body>
 <div class="controls">
-    <label for="data-type">Datenquelle:</label>
+    <label for="data-type">Datasource:</label>
     <select id="data-type">
-        <option value="live">Live-Daten</option>
-        <option value="historical">Historische Daten</option>
+        <option value="live">Live Data</option>
+        <option value="historical">Historical Data</option>
     </select>
-    <label for="date-picker" id="date-label" style="display: none;">Datum wählen:</label>
+    <label for="date-picker" id="date-label" style="display: none;">Choose Date:</label>
     <input type="date" id="date-picker" style="display: none;">
-    <button id="apply-settings">Anwenden</button>
+    <button id="apply-settings">Apply</button>
 </div>
 
 <div class="main-dashboard"></div>
@@ -48,7 +48,7 @@
             if (date) {
                 fetchHistoricalData(date);
             } else {
-                alert('Bitte ein Datum auswählen.');
+                alert('Please choose a Date.');
             }
         }
     });
@@ -59,7 +59,7 @@
             const data = await response.json();
             updateChartsWithHistoricalData(data);
         } catch (error) {
-            console.error('Fehler beim Abrufen der historischen Daten:', error);
+            console.error('Error collecting historical Data:', error);
         }
     }
 
@@ -122,13 +122,13 @@
                     x: {
                         title: {
                             display: true,
-                            text: 'Zeit'
+                            text: 'Time'
                         }
                     },
                     y: {
                         title: {
                             display: true,
-                            text: 'Wert'
+                            text: 'Value'
                         }
                     }
                 }
