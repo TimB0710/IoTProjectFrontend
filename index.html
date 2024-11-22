@@ -4,137 +4,223 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="style.css">
-    <title>Document</title>
+    <title>Dynamic Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-<div class="controls">
-    <label for="data-type">Datasource:</label>
-    <select id="data-type">
-        <option value="live">Live Data</option>
-        <option value="historical">Historical Data</option>
-    </select>
-    <label for="date-picker" id="date-label" style="display: none;">Choose Date:</label>
-    <input type="date" id="date-picker" style="display: none;">
-    <button id="apply-settings">Apply</button>
-</div>
+<header>
+    <h1>Dynamic Sensor Dashboard</h1>
+    <p>Visualize real-time and historical sensor data seamlessly.</p>
+    <button id="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
+</header>
 
-<div class="main-dashboard"></div>
+<main id="main-dashboard"></main>
+
+<footer>
+    <p>© 2024 Dynamic Dashboard. All rights reserved.</p>
+</footer>
 
 <script>
-    const socket = new WebSocket('wss://toBeDone');
+    const socket = new WebSocket('wss://node-red.studybuddy.top/liveData');
+    const apiUrl = 'https://node-red.studybuddy.top';
     const charts = {};
-    const apiUrl = 'https://toBeDone';
+    const liveTimeouts = {};
+    const defaultStartOffset = -1;
+    const defaultEndOffset = 0;
 
-    const dataTypeSelector = document.getElementById('data-type');
-    const datePicker = document.getElementById('date-picker');
-    const dateLabel = document.getElementById('date-label');
-    const applySettingsButton = document.getElementById('apply-settings');
-
-    dataTypeSelector.addEventListener('change', (e) => {
-        if (e.target.value === 'historical') {
-            dateLabel.style.display = 'block';
-            datePicker.style.display = 'block';
-        } else {
-            dateLabel.style.display = 'none';
-            datePicker.style.display = 'none';
-        }
-    });
-
-    applySettingsButton.addEventListener('click', () => {
-        const dataType = dataTypeSelector.value;
-        if (dataType === 'historical') {
-            const date = datePicker.value;
-            if (date) {
-                fetchHistoricalData(date);
-            } else {
-                alert('Please choose a Date.');
-            }
-        }
-    });
-
-    async function fetchHistoricalData(date) {
-        try {
-            const response = await fetch(`${apiUrl}?date=${date}`);
-            const data = await response.json();
-            updateChartsWithHistoricalData(data);
-        } catch (error) {
-            console.error('Error collecting historical Data:', error);
-        }
-    }
-
-    function updateChartsWithHistoricalData(data) {
-        data.forEach(entry => {
-            const {topic, values, timestamps} = entry;
-            if (charts[topic]) {
-                charts[topic].data.labels = timestamps;
-                charts[topic].data.datasets[0].data = values;
-                charts[topic].update();
-            }
+    async function loadDashboard() {
+        const sensors = await fetchSensors();
+        sensors.forEach(sensor => {
+            createSensorCard(sensor);
+            disableLiveData(sensor.ident);
+            updateSensorData(sensor.sensorId, sensor.valueName, sensor.ident, defaultStartOffset, defaultEndOffset);
         });
     }
 
-    socket.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-        const {topic, value, timestamp} = data;
-
-        if (!charts[topic]) {
-            createChart(topic);
+    async function fetchSensors() {
+        try {
+            const response = await fetch(`${apiUrl}/sensors`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching sensors:', error);
         }
+    }
 
-        const chart = charts[topic];
-
-        const timeLabel = new Date(timestamp).toLocaleTimeString();
-
-        chart.data.labels.push(timeLabel);
-        chart.data.datasets[0].data.push(value);
-
-        if (chart.data.labels.length > 10) {
-            chart.data.labels.shift();
-            chart.data.datasets[0].data.shift();
+    async function fetchSensorData(sensorId, valueName, startOffset, endOffset) {
+        try {
+            const response = await fetch(`${apiUrl}/data?sensorId=${sensorId}&valueName=${valueName}&startOffset=${startOffset}&endOffset=${endOffset}`);
+            return await response.json();
+        } catch (error) {
+            console.error(`Error fetching data for ident ${sensorId} and ${valueName}:`, error);
         }
+    }
 
-        chart.update();
-    };
-
-    function createChart(topic) {
+    function createSensorCard(sensor) {
         const container = document.createElement('div');
         container.className = 'grid-item';
-        const canvas = document.createElement('canvas');
-        container.appendChild(canvas);
-        document.querySelector('.main-dashboard').appendChild(container);
+        container.id = `sensor-${sensor.ident}`;
 
-        const ctx = canvas.getContext('2d');
-        charts[topic] = new Chart(ctx, {
-            type: 'line',
+        container.innerHTML = `
+            <h3>${sensor.sensorId} (${sensor.valueName})</h3>
+            <div style="display: flex; align-items: center;">
+                <div id="status-indicator-${sensor.ident}" style="width: 10px; height: 10px; border-radius: 50%; background-color: red; margin-right: 10px;"></div>
+                <button onclick="updateSensorData('${sensor.sensorId}', '${sensor.valueName}', '${sensor.ident}', -1, 0)">Last Hour</button>
+                <button onclick="enableLiveData('${sensor.ident}', true)">Live</button>
+                <button onclick="promptCustomRange('${sensor.sensorId}', '${sensor.valueName}', '${sensor.ident}')">Custom Range</button>
+            </div>
+            <canvas></canvas>
+        `;
+        document.getElementById('main-dashboard').appendChild(container);
+
+        const ctx = container.querySelector('canvas').getContext('2d');
+        const lineColor = document.body.classList.contains('dark-mode') ? '#9c27b0' : '#03a9f4';
+
+        charts[sensor.ident] = new Chart(ctx, {
+            type: sensor.chartType.toLowerCase(),
             data: {
                 labels: [],
                 datasets: [{
-                    label: topic,
+                    label: `${sensor.valueName} (${sensor.unit})`,
                     data: [],
-                    borderColor: `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 1)`,
-                    borderWidth: 1
+                    borderColor: lineColor,
+                    backgroundColor: 'rgba(156, 39, 176, 0.2)',
+                    borderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
                 scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Time'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Value'
-                        }
-                    }
+                    x: {title: {display: true, text: sensor.xLabel}},
+                    y: {title: {display: true, text: sensor.yLabel}}
                 }
             }
         });
     }
+
+    function enableLiveData(ident, buttonClick) {
+        if (charts[ident]) {
+            charts[ident].isLive = true;
+
+            const statusIndicator = document.getElementById(`status-indicator-${ident}`);
+            if (statusIndicator) {
+                statusIndicator.style.backgroundColor = 'green';
+            }
+
+            if (liveTimeouts[ident]) {
+                clearTimeout(liveTimeouts[ident]);
+            }
+
+            liveTimeouts[ident] = setTimeout(() => {
+                disableLiveData(ident);
+            }, 30000);
+
+            if (buttonClick) {
+                charts[ident].data.labels = [];
+                charts[ident].data.datasets[0].data = [];
+                charts[ident].update();
+            }
+        }
+    }
+
+    function disableLiveData(ident) {
+        if (charts[ident]) {
+            charts[ident].isLive = false;
+
+            const statusIndicator = document.getElementById(`status-indicator-${ident}`);
+            if (statusIndicator) {
+                statusIndicator.style.backgroundColor = 'red';
+            }
+
+            if (liveTimeouts[ident]) {
+                clearTimeout(liveTimeouts[ident]);
+                delete liveTimeouts[ident];
+            }
+        }
+    }
+
+    function updateSensorData(sensorId, valueName, ident, startOffset, endOffset) {
+        fetchSensorData(sensorId, valueName, startOffset, endOffset).then(data => {
+            if (data) {
+                const chart = charts[ident];
+                chart.data.labels = data.timestamps.map(t => new Date(t).toLocaleTimeString());
+                chart.data.datasets[0].data = data.values;
+                chart.update();
+            }
+
+            if (endOffset === 0) {
+                enableLiveData(ident, false);
+            } else {
+                disableLiveData(ident);
+            }
+        });
+    }
+
+    function promptCustomRange(sensorId, valueName, ident) {
+        const startOffset = prompt('Enter start offset in hours (e.g., -24 for last 24 hours):', '-1');
+        const endOffset = prompt('Enter end offset in hours (e.g., 0 for now):', '0');
+        if (startOffset !== null && endOffset !== null) {
+            updateSensorData(sensorId, valueName, ident, parseInt(startOffset), parseInt(endOffset));
+        }
+    }
+
+    function toggleDarkMode() {
+        const body = document.body;
+        const header = document.querySelector('header');
+        const footer = document.querySelector('footer');
+        const gridItems = document.querySelectorAll('.grid-item');
+        const toggleButton = document.getElementById('dark-mode-toggle');
+
+        body.classList.toggle('dark-mode');
+        header.classList.toggle('dark-mode');
+        footer.classList.toggle('dark-mode');
+        gridItems.forEach(item => item.classList.toggle('dark-mode'));
+
+        if (body.classList.contains('dark-mode')) {
+            toggleButton.innerHTML = '🌞';
+        } else {
+            toggleButton.innerHTML = '🌙';
+        }
+
+        Object.values(charts).forEach(chart => {
+            chart.data.datasets[0].borderColor = body.classList.contains('dark-mode') ? '#9c27b0' : '#03a9f4';
+            chart.data.datasets[0].backgroundColor = body.classList.contains('dark-mode') ? 'rgba(156, 39, 176, 0.2)' : 'rgba(3, 169, 244, 0.2)';
+            chart.update();
+        });
+    }
+
+    socket.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            const ident = data.ident;
+
+            if (charts[ident] && charts[ident].isLive) {
+                const chart = charts[ident];
+                const timestamp = new Date();
+                const timeLabel = timestamp.toLocaleTimeString();
+
+                chart.data.labels.push(timeLabel);
+                chart.data.datasets[0].data.push(data.value);
+
+                if (chart.data.labels.length > 20) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+
+                chart.update();
+
+                if (liveTimeouts[ident]) {
+                    clearTimeout(liveTimeouts[ident]);
+                }
+                liveTimeouts[ident] = setTimeout(() => {
+                    disableLiveData(ident);
+                }, 60000);
+            }
+        } catch (error) {
+            console.error("Error processing live data:", error);
+        }
+    };
+
+    loadDashboard();
 </script>
 </body>
 </html>
