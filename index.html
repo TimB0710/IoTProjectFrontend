@@ -61,9 +61,9 @@
         container.id = `sensor-${sensor.ident}`;
 
         container.innerHTML = `
-            <h3>${sensor.valueName} (${sensor.sensorId}) </h3>
+            <h3>${sensor.valueName} (${sensor.sensorId})</h3>
             <div style="display: flex; align-items: center;">
-                <div id="status-indicator-${sensor.ident}" style="width: 10px; height: 10px; border-radius: 50%; background-color: red; margin-right: 10px;"></div>
+                <div id="status-indicator-${sensor.ident}" style="width: 10px; height: 10px; border-radius: 50%; background-color: gray; margin-right: 10px;"></div>
                 <button onclick="updateSensorData('${sensor.sensorId}', '${sensor.valueName}', '${sensor.ident}', -1, 0)">Last Hour</button>
                 <button onclick="enableLiveData('${sensor.ident}', true)">Live</button>
                 <button onclick="promptCustomRange('${sensor.sensorId}', '${sensor.valueName}', '${sensor.ident}')">Custom Range</button>
@@ -103,7 +103,7 @@
 
             const statusIndicator = document.getElementById(`status-indicator-${ident}`);
             if (statusIndicator) {
-                statusIndicator.style.backgroundColor = 'green';
+                statusIndicator.style.backgroundColor = 'gray';
             }
 
             if (liveTimeouts[ident]) {
@@ -111,7 +111,10 @@
             }
 
             liveTimeouts[ident] = setTimeout(() => {
-                disableLiveData(ident);
+                const statusIndicator = document.getElementById(`status-indicator-${ident}`);
+                if (statusIndicator) {
+                    statusIndicator.style.backgroundColor = 'red';
+                }
             }, 30000);
 
             if (buttonClick) {
@@ -202,6 +205,10 @@
                 const chart = charts[ident];
                 const timestamp = new Date();
                 const timeLabel = timestamp.toLocaleTimeString();
+                const statusIndicator = document.getElementById(`status-indicator-${ident}`);
+                if (statusIndicator) {
+                    statusIndicator.style.backgroundColor = 'green';
+                }
 
                 chart.data.labels.push(timeLabel);
                 chart.data.datasets[0].data.push(data.value);
@@ -210,19 +217,16 @@
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                 }
-                if (chart.data.labels.length > 20) {
-                    chart.data.datasets[0].pointStyle = 'line';
-                } else {
-                    chart.data.datasets[0].pointStyle = 'circle';
-                }
                 chart.update();
-
                 if (liveTimeouts[ident]) {
                     clearTimeout(liveTimeouts[ident]);
                 }
                 liveTimeouts[ident] = setTimeout(() => {
-                    disableLiveData(ident);
-                }, 60000);
+                    const statusIndicator = document.getElementById(`status-indicator-${ident}`);
+                    if (statusIndicator) {
+                        statusIndicator.style.backgroundColor = 'red';
+                    }
+                }, 30000);
             }
         } catch (error) {
             console.error("Error processing live data:", error);
