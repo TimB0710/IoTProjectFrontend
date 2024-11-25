@@ -105,7 +105,6 @@
             if (statusIndicator) {
                 statusIndicator.style.backgroundColor = 'gray';
             }
-
             if (liveTimeouts[ident]) {
                 clearTimeout(liveTimeouts[ident]);
             }
@@ -118,6 +117,7 @@
             }, 30000);
 
             if (buttonClick) {
+                charts[ident].data.datasets[0].pointStyle = 'circle';
                 charts[ident].data.labels = [];
                 charts[ident].data.datasets[0].data = [];
                 charts[ident].update();
