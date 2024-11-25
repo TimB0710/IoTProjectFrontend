@@ -167,7 +167,7 @@
         const startOffset = prompt('Enter start offset in hours (e.g., -24 for last 24 hours):', '-1');
         const endOffset = prompt('Enter end offset in hours (e.g., 0 for now):', '0');
         if (startOffset !== null && endOffset !== null) {
-            updateSensorData(sensorId, valueName, ident, parseInt(startOffset), parseInt(endOffset));
+            updateSensorData(sensorId, valueName, ident, startOffset, endOffset);
         }
     }
 
