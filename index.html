@@ -61,7 +61,7 @@
         container.id = `sensor-${sensor.ident}`;
 
         container.innerHTML = `
-            <h3>(${sensor.valueName}) ${sensor.sensorId} </h3>
+            <h3>${sensor.valueName} (${sensor.sensorId}) </h3>
             <div style="display: flex; align-items: center;">
                 <div id="status-indicator-${sensor.ident}" style="width: 10px; height: 10px; border-radius: 50%; background-color: red; margin-right: 10px;"></div>
                 <button onclick="updateSensorData('${sensor.sensorId}', '${sensor.valueName}', '${sensor.ident}', -1, 0)">Last Hour</button>
