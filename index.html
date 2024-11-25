@@ -144,6 +144,11 @@
                 const chart = charts[ident];
                 chart.data.labels = data.timestamps.map(t => new Date(t).toLocaleTimeString());
                 chart.data.datasets[0].data = data.values;
+                if (chart.data.labels.length > 20) {
+                    chart.data.datasets[0].pointStyle = 'line';
+                } else {
+                    chart.data.datasets[0].pointStyle = 'circle';
+                }
                 chart.update();
             }
 
@@ -205,7 +210,11 @@
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                 }
-
+                if (chart.data.labels.length > 20) {
+                    chart.data.datasets[0].pointStyle = 'line';
+                } else {
+                    chart.data.datasets[0].pointStyle = 'circle';
+                }
                 chart.update();
 
                 if (liveTimeouts[ident]) {
