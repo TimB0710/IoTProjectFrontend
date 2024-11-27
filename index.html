@@ -118,6 +118,7 @@
 
             if (buttonClick) {
                 charts[ident].data.datasets[0].pointStyle = 'circle';
+                charts[ident].data.datasets[0].pointRadius = 3;
                 charts[ident].data.labels = [];
                 charts[ident].data.datasets[0].data = [];
                 charts[ident].update();
@@ -148,9 +149,10 @@
                 chart.data.labels = data.timestamps.map(t => new Date(t).toLocaleTimeString());
                 chart.data.datasets[0].data = data.values;
                 if (chart.data.labels.length > 20) {
-                    chart.data.datasets[0].pointStyle = 'line';
+                    chart.data.datasets[0].pointRadius = 0;
                 } else {
                     chart.data.datasets[0].pointStyle = 'circle';
+                    chart.data.datasets[0].pointRadius = 3;
                 }
                 chart.update();
             }
@@ -167,7 +169,7 @@
         const startOffset = prompt('Enter start offset in hours (e.g., -24 for last 24 hours):', '-1');
         const endOffset = prompt('Enter end offset in hours (e.g., 0 for now):', '0');
         if (startOffset !== null && endOffset !== null) {
-            updateSensorData(sensorId, valueName, ident, parseInt(startOffset), parseInt(endOffset));
+            updateSensorData(sensorId, valueName, ident, parseFloat(startOffset), parseFloat(endOffset));
         }
     }
 
